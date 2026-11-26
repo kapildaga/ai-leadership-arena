@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Leadership Arena</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header class="topbar hidden" id="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-mark">◆</span>AI Leadership Arena</div>
+    <nav class="nav" id="nav">
+      <button data-view="home">Dashboard</button>
+      <button data-view="tracks">Tracks</button>
+      <button data-view="library">Expression library</button>
+      <button data-view="progress">My progress</button>
+      <button data-view="cohort">Cohort</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+    <div class="userchip" id="userchip"></div>
+  </div>
+</header>
+
+<main class="app" id="app"></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="modal-root"></div>
+
+<script src="js/storage.js"></script>
+<script src="js/content.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/evaluator.js"></script>
+<script src="js/ai-coach.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
