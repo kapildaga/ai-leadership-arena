@@ -98,8 +98,10 @@ window.Arena = window.Arena || {};
   }
 
   /* ---------- Session ---------- */
-  function login(meta) {
+  /** intent "arena" (from the welcome page) skips calibration for a new profile. */
+  function login(meta, intent) {
     S.meta = meta; S.data = ST.loadData(meta.id);
+    if (intent === "arena" && !S.data.calibrated && !S.data.attempts) S.data.calibrated = true;
     ST.startSession(meta.id); save();
     if (!S.data.calibrated) go("calibrate");
     else go("home");
@@ -109,10 +111,77 @@ window.Arena = window.Arena || {};
   /* ======================= VIEWS ======================= */
   const VIEWS = {};
 
+  /* ---------- Welcome (creator's note) ---------- */
+  VIEWS.welcome = () => {
+    const inApp = !!S.data;
+    const hidden = !!ST.getSettings().hideWelcome;
+    const choices = inApp
+      ? `<div class="row" style="justify-content:center"><button class="primary teal" id="wlBack">Back to my dashboard</button></div>`
+      : `<h3>Ready to step in?</h3>
+        <p class="sub">Choose how you'd like to begin. Your progress is saved in this browser.</p>
+        <div class="wl-choices">
+          <button class="wl-choice primary-c" data-intent="calibrate">
+            <span class="rec">Recommended</span>
+            <div class="ico">◎</div>
+            <b>Calibrate my starting level</b>
+            <span>8 quick situations, about 5 minutes. The Arena then starts you at the right tier for each skill.</span>
+            <div class="go">Start calibration →</div>
+          </button>
+          <button class="wl-choice secondary-c" data-intent="arena">
+            <div class="ico">▶</div>
+            <b>Go straight to the Arena</b>
+            <span>Start at Foundation level and work your way up through the tracks at your own pace.</span>
+            <div class="go">Enter the Arena →</div>
+          </button>
+        </div>
+        <label class="wl-skip"><input type="checkbox" id="wlHide" ${hidden ? "checked" : ""}> Don't show this welcome again</label>`;
+    return { html: `
+      <div class="wl">
+        <section class="wl-hero">
+          <div class="wl-brand"><div class="mark">AI</div>AI Leadership Arena</div>
+          <div class="wl-eyebrow">Welcome</div>
+          <h1>Judgement is a muscle.<br><em>This is where you train it.</em></h1>
+          <p class="lead">A practice arena where AI leaders sharpen their judgement on realistic situations that get harder as you get better.</p>
+        </section>
+        <article class="wl-letter">
+          <div class="wl-tag">A note from the creator</div>
+          <h2>Why I built this</h2>
+          <p>For over two decades in AI and Analytics I have watched talented leaders build excellent models that never reached the business. The technology was rarely the problem. What decided the outcome was the conversation in the room: a sponsor pushing for a date the data couldn't support, a business leader asking for the ROI before the value was proven, a governance board weighing risk against speed, a team worn down by one more pilot, or a peer quietly protecting their turf.</p>
+          <p>I've been in many of those rooms. I got some calls right and learned more from the ones I didn't. Most of those lessons came the hard way, in real meetings with real stakes and no chance to rehearse.</p>
+          <p class="pull">I created this app so others can benefit from those situations without having to learn every lesson the hard way.</p>
+          <p>AI Leadership Arena is where AI leaders can train and exercise their judgement on real-life situations across strategy, investment, people and stakeholders. Make the call, see how it lands, get honest feedback, and come back stronger.</p>
+          <div class="wl-pillars">
+            <div class="wl-pillar"><b>Real-life situations</b><span>${Object.keys(C.byId).length} scenarios across industries, from boardrooms to the frontline.</span></div>
+            <div class="wl-pillar"><b>Gets harder as you grow</b><span>Four tiers, from quick calls to boardroom curveballs.</span></div>
+            <div class="wl-pillar"><b>Honest, adaptive feedback</b><span>Your weak spots come back until they become strengths.</span></div>
+          </div>
+          <div class="wl-signoff">
+            <div class="wl-who">
+              <img class="wl-sig" src="img/signature.png" alt="Kapil Daga signature">
+              <div class="wl-name">Kapil Daga</div>
+              <div class="wl-title">20+ years in AI &amp; Analytics</div>
+              <div class="wl-contact">
+                <a href="mailto:kapil.daga@gmail.com"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 6l9 7 9-7" fill="none" stroke="currentColor" stroke-width="2"/></svg>kapil.daga@gmail.com</a>
+                <a href="https://www.linkedin.com/in/kapildaga/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.6c0-1.34-.02-3.06-1.86-3.06-1.87 0-2.15 1.46-2.15 2.96V21H9z"/></svg>linkedin.com/in/kapildaga</a>
+              </div>
+            </div>
+            <img class="wl-photo" src="img/photo.png" alt="Kapil Daga">
+          </div>
+        </article>
+        <section class="wl-start">${choices}</section>
+      </div>`,
+      bind() {
+        if (inApp) { $("#wlBack").onclick = () => go("home"); return; }
+        $("#wlHide").onchange = e => { const s = ST.getSettings(); s.hideWelcome = e.target.checked; ST.saveSettings(s); };
+        $$(".wl-choice").forEach(b => b.onclick = () => go("profiles", { intent: b.dataset.intent }));
+      } };
+  };
+
   /* ---------- Profiles ---------- */
   VIEWS.profiles = () => {
     const list = ST.listProfiles().sort((a, b) => b.lastActive - a.lastActive);
     const showForm = S.params.create || !list.length;
+    const intent = S.params.intent || "calibrate";
     return { html: `
       <div class="center-wrap">
         <header class="hero">
@@ -132,24 +201,25 @@ window.Arena = window.Arena || {};
               <div class="field"><label for="pRole">Role</label><input id="pRole" maxlength="60" placeholder="e.g. Head of Applied AI"></div>
             </div>
             <div class="field"><label for="pPin">PIN (optional, 4–8 digits)</label><input id="pPin" type="password" inputmode="numeric" maxlength="8" placeholder="Protects your profile on a shared device"></div>
-            <button class="primary teal" id="createBtn">Create profile & start calibration</button>
+            <button class="primary teal" id="createBtn">${intent === "arena" ? "Create profile & enter the Arena" : "Create profile & start calibration"}</button>
           </div>
-          <div class="mt small muted">Moving devices? <label class="link-btn" style="cursor:pointer">Restore a profile from a backup file<input type="file" accept=".json,application/json" id="restoreFile" class="hidden"></label></div>
+          <div class="mt small muted"><button class="link-btn" id="aboutBtn">About this app</button> · Moving devices? <label class="link-btn" style="cursor:pointer">Restore a profile from a backup file<input type="file" accept=".json,application/json" id="restoreFile" class="hidden"></label></div>
         </div>
       </div>`,
       bind() {
         $$(".profile-card").forEach(b => b.onclick = async () => {
           const meta = ST.getProfileMeta(b.dataset.id);
           if (meta.pinHash) { const pin = await pinBox(meta.name); if (pin == null) return; if (!(await ST.verifyPin(meta.id, pin))) return toast("Incorrect PIN"); }
-          login(meta);
+          login(meta, intent);
         });
+        $("#aboutBtn").onclick = () => go("welcome");
         const nb = $("#newProf"); nb && (nb.onclick = () => { $("#createForm").classList.remove("hidden"); $("#pName").focus(); });
         $("#createBtn").onclick = async () => {
           const name = $("#pName").value.trim(), role = $("#pRole").value.trim(), pin = $("#pPin").value.trim();
           if (name.length < 2) return toast("Please enter your name");
           if (pin && !/^\d{4,8}$/.test(pin)) return toast("PIN must be 4–8 digits");
           if (ST.listProfiles().some(p => p.name.toLowerCase() === name.toLowerCase())) return toast("A profile with that name already exists");
-          login(await ST.createProfile({ name, role, pin }));
+          login(await ST.createProfile({ name, role, pin }), intent);
         };
         $("#restoreFile").onchange = async e => {
           try { const meta = ST.importProfile(await readJsonFile(e.target), "restore"); toast(`Restored ${meta.name}. Set a PIN in Settings.`); login(meta); }
@@ -682,7 +752,7 @@ window.Arena = window.Arena || {};
     const state = ST.sessionState(), sess = ST.getSession();
     if (state === "active") { const meta = ST.getProfileMeta(sess.profileId); S.meta = meta; S.data = ST.loadData(meta.id); ST.touchSession(); go(S.data.calibrated ? "home" : "calibrate"); if (S.data.calibrated && resumable(S.data)) toast("Welcome back. Your in-progress scenario is ready to resume."); }
     else if (state === "locked") { S.meta = ST.getProfileMeta(sess.profileId); S.data = ST.loadData(S.meta.id); go("lock"); }
-    else go("profiles");
+    else go(ST.getSettings().hideWelcome ? "profiles" : "welcome");
   }
   boot();
 })(window.Arena);
